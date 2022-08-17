@@ -38,19 +38,18 @@ def main(args: argparse.Namespace):
     cudnn.benchmark = True
 
     # Data loading code
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
     train_transform = transforms.Compose([
         ResizeImage(256),
         transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize
+        transforms.ToTensor(), normalize
     ])
     val_tranform = transforms.Compose([
         ResizeImage(256),
         transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        normalize
+        transforms.ToTensor(), normalize
     ])
 
     a, b, c = args.n_share, args.n_source_private, args.n_total
@@ -61,67 +60,152 @@ def main(args: argparse.Namespace):
     target_classes = common_classes + target_private_classes
 
     dataset = datasets.Office31
-    train_source_dataset = dataset(root=args.root, data_list_file=args.source, filter_class=source_classes,
+    train_source_dataset = dataset(root=args.root,
+                                   data_list_file=args.source,
+                                   filter_class=source_classes,
                                    transform=train_transform)
-    train_source_loader = DataLoader(train_source_dataset, batch_size=args.batch_size,
-                                     shuffle=True, num_workers=args.workers, drop_last=True)
-    train_target_dataset = dataset(root=args.root, data_list_file=args.target, filter_class=target_classes,
+    train_source_loader = DataLoader(train_source_dataset,
+                                     batch_size=args.batch_size,
+                                     shuffle=True,
+                                     num_workers=args.workers,
+                                     drop_last=True)
+    train_target_dataset = dataset(root=args.root,
+                                   data_list_file=args.target,
+                                   filter_class=target_classes,
                                    transform=train_transform)
-    train_target_loader = DataLoader(train_target_dataset, batch_size=args.batch_size,
-                                     shuffle=True, num_workers=args.workers, drop_last=True)
-    val_dataset = dataset(root=args.root, data_list_file=args.target, filter_class=target_classes,
+    train_target_loader = DataLoader(train_target_dataset,
+                                     batch_size=args.batch_size,
+                                     shuffle=True,
+                                     num_workers=args.workers,
+                                     drop_last=True)
+    val_dataset = dataset(root=args.root,
+                          data_list_file=args.target,
+                          filter_class=target_classes,
                           transform=val_tranform)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
+    val_loader = DataLoader(val_dataset,
+                            batch_size=args.batch_size,
+                            shuffle=False,
+                            num_workers=args.workers)
 
     test_loader = val_loader
 
     train_source_iter = ForeverDataIterator(train_source_loader)
     train_target_iter = ForeverDataIterator(train_target_loader)
-    esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5 = esem_dataloader(args, source_classes)
+    esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5 = esem_dataloader(
+        args, source_classes)
 
     # create model
     backbone = resnet50(pretrained=True)
-    classifier = ImageClassifier(backbone, train_source_dataset.num_classes).to(device)
-    domain_discri = DomainDiscriminator(in_feature=classifier.features_dim, hidden_size=1024).to(device)
-    esem = Ensemble(classifier.features_dim, train_source_dataset.num_classes).to(device)
+    classifier = ImageClassifier(backbone,
+                                 train_source_dataset.num_classes).to(device)
+    domain_discri = DomainDiscriminator(in_feature=classifier.features_dim,
+                                        hidden_size=1024).to(device)
+    esem = Ensemble(classifier.features_dim,
+                    train_source_dataset.num_classes).to(device)
 
     # define optimizer and lr scheduler
-    optimizer = SGD(classifier.get_parameters() + domain_discri.get_parameters(),
-                    args.lr, momentum=args.momentum, weight_decay=args.weight_decay, nesterov=True)
-    lr_scheduler = StepwiseLR(optimizer, init_lr=args.lr, gamma=0.001, decay_rate=0.75)
+    optimizer = SGD(classifier.get_parameters() +
+                    domain_discri.get_parameters(),
+                    args.lr,
+                    momentum=args.momentum,
+                    weight_decay=args.weight_decay,
+                    nesterov=True)
+    lr_scheduler = StepwiseLR(optimizer,
+                              init_lr=args.lr,
+                              gamma=0.001,
+                              decay_rate=0.75)
 
-    optimizer_esem = SGD(esem.parameters(), args.lr, momentum=args.momentum, weight_decay=args.weight_decay,
+    optimizer_esem = SGD(esem.parameters(),
+                         args.lr,
+                         momentum=args.momentum,
+                         weight_decay=args.weight_decay,
                          nesterov=True)
-    lr_scheduler1 = StepwiseLR(optimizer_esem, init_lr=args.lr, gamma=0.001, decay_rate=0.75)
-    lr_scheduler2 = StepwiseLR(optimizer_esem, init_lr=args.lr, gamma=0.001, decay_rate=0.75)
-    lr_scheduler3 = StepwiseLR(optimizer_esem, init_lr=args.lr, gamma=0.001, decay_rate=0.75)
-    lr_scheduler4 = StepwiseLR(optimizer_esem, init_lr=args.lr, gamma=0.001, decay_rate=0.75)
-    lr_scheduler5 = StepwiseLR(optimizer_esem, init_lr=args.lr, gamma=0.001, decay_rate=0.75)
+    lr_scheduler1 = StepwiseLR(optimizer_esem,
+                               init_lr=args.lr,
+                               gamma=0.001,
+                               decay_rate=0.75)
+    lr_scheduler2 = StepwiseLR(optimizer_esem,
+                               init_lr=args.lr,
+                               gamma=0.001,
+                               decay_rate=0.75)
+    lr_scheduler3 = StepwiseLR(optimizer_esem,
+                               init_lr=args.lr,
+                               gamma=0.001,
+                               decay_rate=0.75)
+    lr_scheduler4 = StepwiseLR(optimizer_esem,
+                               init_lr=args.lr,
+                               gamma=0.001,
+                               decay_rate=0.75)
+    lr_scheduler5 = StepwiseLR(optimizer_esem,
+                               init_lr=args.lr,
+                               gamma=0.001,
+                               decay_rate=0.75)
 
-    optimizer_pre = SGD(esem.get_parameters() + classifier.get_parameters(), args.lr, momentum=args.momentum,
-                        weight_decay=args.weight_decay, nesterov=True)
+    optimizer_pre = SGD(esem.get_parameters() + classifier.get_parameters(),
+                        args.lr,
+                        momentum=args.momentum,
+                        weight_decay=args.weight_decay,
+                        nesterov=True)
 
     # define loss function
-    domain_adv = DomainAdversarialLoss(domain_discri, reduction='none').to(device)
+    domain_adv = DomainAdversarialLoss(domain_discri,
+                                       reduction='none').to(device)
 
-    pretrain(esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5, classifier,
-             esem, optimizer_pre, args)
+    pretrain(esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5,
+             classifier, esem, optimizer_pre, args)
 
     # start training
     best_acc1 = 0.
     for epoch in range(args.epochs):
         # train for one epoch
 
-        train_esem(esem_iter1, classifier, esem, optimizer_esem, lr_scheduler1, epoch, args, index=1)
-        train_esem(esem_iter2, classifier, esem, optimizer_esem, lr_scheduler2, epoch, args, index=2)
-        train_esem(esem_iter3, classifier, esem, optimizer_esem, lr_scheduler3, epoch, args, index=3)
-        train_esem(esem_iter4, classifier, esem, optimizer_esem, lr_scheduler4, epoch, args, index=4)
-        train_esem(esem_iter5, classifier, esem, optimizer_esem, lr_scheduler5, epoch, args, index=5)
+        train_esem(esem_iter1,
+                   classifier,
+                   esem,
+                   optimizer_esem,
+                   lr_scheduler1,
+                   epoch,
+                   args,
+                   index=1)
+        train_esem(esem_iter2,
+                   classifier,
+                   esem,
+                   optimizer_esem,
+                   lr_scheduler2,
+                   epoch,
+                   args,
+                   index=2)
+        train_esem(esem_iter3,
+                   classifier,
+                   esem,
+                   optimizer_esem,
+                   lr_scheduler3,
+                   epoch,
+                   args,
+                   index=3)
+        train_esem(esem_iter4,
+                   classifier,
+                   esem,
+                   optimizer_esem,
+                   lr_scheduler4,
+                   epoch,
+                   args,
+                   index=4)
+        train_esem(esem_iter5,
+                   classifier,
+                   esem,
+                   optimizer_esem,
+                   lr_scheduler5,
+                   epoch,
+                   args,
+                   index=5)
 
-        source_class_weight = evaluate_source_common(val_loader, classifier, esem, source_classes, args)
+        source_class_weight = evaluate_source_common(val_loader, classifier,
+                                                     esem, source_classes,
+                                                     args)
 
-        train(train_source_iter, train_target_iter, classifier, domain_adv, esem, optimizer,
-              lr_scheduler, epoch, source_class_weight, args)
+        train(train_source_iter, train_target_iter, classifier, domain_adv,
+              esem, optimizer, lr_scheduler, epoch, source_class_weight, args)
 
         # evaluate on validation set
         acc1 = validate(val_loader, classifier, esem, source_classes, args)
@@ -139,9 +223,11 @@ def main(args: argparse.Namespace):
     print("test_acc1 = {:3.3f}".format(acc1))
 
 
-def train(train_source_iter: ForeverDataIterator, train_target_iter: ForeverDataIterator,
-          model: ImageClassifier, domain_adv: DomainAdversarialLoss, esem, optimizer: SGD,
-          lr_scheduler: StepwiseLR, epoch: int, source_class_weight, args: argparse.Namespace):
+def train(train_source_iter: ForeverDataIterator,
+          train_target_iter: ForeverDataIterator, model: ImageClassifier,
+          domain_adv: DomainAdversarialLoss, esem, optimizer: SGD,
+          lr_scheduler: StepwiseLR, epoch: int, source_class_weight,
+          args: argparse.Namespace):
     batch_time = AverageMeter('Time', ':5.2f')
     data_time = AverageMeter('Data', ':5.2f')
     losses = AverageMeter('Loss', ':6.2f')
@@ -185,10 +271,12 @@ def train(train_source_iter: ForeverDataIterator, train_target_iter: ForeverData
             entropy = get_entropy(yt_1, yt_2, yt_3, yt_4, yt_5)
             consistency = get_consistency(yt_1, yt_2, yt_3, yt_4, yt_5)
             w_t = (1 - entropy + 1 - consistency + confidence) / 3
-            w_s = torch.tensor([source_class_weight[i] for i in labels_s]).to(device)
+            w_s = torch.tensor([source_class_weight[i]
+                                for i in labels_s]).to(device)
 
         cls_loss = F.cross_entropy(y_s, labels_s)
-        transfer_loss = domain_adv(f_s, f_t, w_s.detach(), w_t.to(device).detach())
+        transfer_loss = domain_adv(f_s, f_t, w_s.detach(),
+                                   w_t.to(device).detach())
         domain_acc = domain_adv.domain_discriminator_accuracy
         loss = cls_loss + transfer_loss * args.trade_off
 
@@ -211,13 +299,12 @@ def train(train_source_iter: ForeverDataIterator, train_target_iter: ForeverData
             progress.display(i)
 
 
-def train_esem(train_source_iter, model, esem, optimizer, lr_scheduler, epoch, args, index):
+def train_esem(train_source_iter, model, esem, optimizer, lr_scheduler, epoch,
+               args, index):
     losses = AverageMeter('Loss', ':6.2f')
     cls_accs = AverageMeter('Cls Acc', ':3.1f')
-    progress = ProgressMeter(
-        args.iters_per_epoch,
-        [losses, cls_accs],
-        prefix="Esem: [{}-{}]".format(epoch, index))
+    progress = ProgressMeter(args.iters_per_epoch, [losses, cls_accs],
+                             prefix="Esem: [{}-{}]".format(epoch, index))
 
     model.eval()
     esem.train()
@@ -248,8 +335,8 @@ def train_esem(train_source_iter, model, esem, optimizer, lr_scheduler, epoch, a
             progress.display(i)
 
 
-def validate(val_loader: DataLoader, model: ImageClassifier, esem, source_classes: list,
-             args: argparse.Namespace) -> float:
+def validate(val_loader: DataLoader, model: ImageClassifier, esem,
+             source_classes: list, args: argparse.Namespace) -> float:
     # switch to evaluate mode
     model.eval()
     esem.eval()
@@ -285,7 +372,8 @@ def validate(val_loader: DataLoader, model: ImageClassifier, esem, source_classe
     all_score = (all_confidece + 1 - all_consistency + 1 - all_entropy) / 3
 
     counters = AccuracyCounter(len(source_classes) + 1)
-    for (each_indice, each_label, score) in zip(all_indices, all_labels, all_score):
+    for (each_indice, each_label, score) in zip(all_indices, all_labels,
+                                                all_score):
         if each_label in source_classes:
             counters.add_total(each_label)
             if score >= args.threshold and each_indice == each_label:
@@ -303,7 +391,8 @@ def validate(val_loader: DataLoader, model: ImageClassifier, esem, source_classe
     return counters.mean_accuracy()
 
 
-def evaluate_source_common(val_loader: DataLoader, model: ImageClassifier, esem, source_classes: list,
+def evaluate_source_common(val_loader: DataLoader, model: ImageClassifier,
+                           esem, source_classes: list,
                            args: argparse.Namespace):
     temperature = 1
     # switch to evaluate mode
@@ -381,13 +470,12 @@ def evaluate_source_common(val_loader: DataLoader, model: ImageClassifier, esem,
     return source_weight
 
 
-def pretrain(esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5, model, esem, optimizer, args):
+def pretrain(esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5, model,
+             esem, optimizer, args):
     losses = AverageMeter('Loss', ':6.2f')
     cls_accs = AverageMeter('Cls Acc', ':3.1f')
-    progress = ProgressMeter(
-        args.iters_per_epoch,
-        [losses, cls_accs],
-        prefix="Esem: [{}-{}]".format(0, 0))
+    progress = ProgressMeter(args.iters_per_epoch, [losses, cls_accs],
+                             prefix="Esem: [{}-{}]".format(0, 0))
 
     model.train()
     esem.train()
@@ -445,33 +533,65 @@ def pretrain(esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5, model, 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch Domain Adaptation')
-    parser.add_argument('root', metavar='DIR',
-                        help='root path of dataset')
+    parser.add_argument('root', metavar='DIR', help='root path of dataset')
     parser.add_argument('-d', '--data', metavar='DATA', default='Office31')
     parser.add_argument('-s', '--source', help='source domain(s)')
     parser.add_argument('-t', '--target', help='target domain(s)')
     parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50')
-    parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
+    parser.add_argument('-j',
+                        '--workers',
+                        default=2,
+                        type=int,
+                        metavar='N',
                         help='number of data loading workers (default: 4)')
-    parser.add_argument('--epochs', default=20, type=int, metavar='N',
+    parser.add_argument('--epochs',
+                        default=20,
+                        type=int,
+                        metavar='N',
                         help='number of total epochs to run')
-    parser.add_argument('-b', '--batch-size', default=32, type=int,
+    parser.add_argument('-b',
+                        '--batch-size',
+                        default=32,
+                        type=int,
                         metavar='N',
                         help='mini-batch size (default: 32)')
-    parser.add_argument('--lr', '--learning-rate', default=0.01, type=float,
-                        metavar='LR', help='initial learning rate', dest='lr')
-    parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
+    parser.add_argument('--lr',
+                        '--learning-rate',
+                        default=0.01,
+                        type=float,
+                        metavar='LR',
+                        help='initial learning rate',
+                        dest='lr')
+    parser.add_argument('--momentum',
+                        default=0.9,
+                        type=float,
+                        metavar='M',
                         help='momentum')
-    parser.add_argument('--wd', '--weight-decay', default=1e-3, type=float,
-                        metavar='W', help='weight decay (default: 1e-3)',
+    parser.add_argument('--wd',
+                        '--weight-decay',
+                        default=1e-3,
+                        type=float,
+                        metavar='W',
+                        help='weight decay (default: 1e-3)',
                         dest='weight_decay')
-    parser.add_argument('-p', '--print-freq', default=100, type=int,
-                        metavar='N', help='print frequency (default: 100)')
-    parser.add_argument('--seed', default=None, type=int,
+    parser.add_argument('-p',
+                        '--print-freq',
+                        default=100,
+                        type=int,
+                        metavar='N',
+                        help='print frequency (default: 100)')
+    parser.add_argument('--seed',
+                        default=None,
+                        type=int,
                         help='seed for initializing training. ')
-    parser.add_argument('--trade-off', default=1., type=float,
+    parser.add_argument('--trade-off',
+                        default=1.,
+                        type=float,
                         help='the trade-off hyper-parameter for transfer loss')
-    parser.add_argument('-i', '--iters-per-epoch', default=1000, type=int,
+    parser.add_argument('-i',
+                        '--iters-per-epoch',
+                        default=1000,
+                        type=int,
                         help='Number of iterations per epoch')
     parser.add_argument('--n_share', type=int, default=10, help=" ")
     parser.add_argument('--n_source_private', type=int, default=10, help=" ")
