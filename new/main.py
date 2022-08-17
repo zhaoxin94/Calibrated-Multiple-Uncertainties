@@ -570,7 +570,7 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50')
     parser.add_argument('-j',
                         '--workers',
-                        default=2,
+                        default=4,
                         type=int,
                         metavar='N',
                         help='number of data loading workers (default: 4)')
@@ -620,7 +620,7 @@ if __name__ == '__main__':
                         help='the trade-off hyper-parameter for transfer loss')
     parser.add_argument('-i',
                         '--iters-per-epoch',
-                        default=1000,
+                        default=500,
                         type=int,
                         help='Number of iterations per epoch')
     parser.add_argument('--n_share', type=int, default=10, help=" ")
