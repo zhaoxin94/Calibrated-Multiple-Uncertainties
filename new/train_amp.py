@@ -18,6 +18,9 @@ import torch.nn.functional as F
 import numpy as np
 from PIL import Image
 
+from torch.cuda.amp import GradScaler
+from torch.cuda.amp import autocast
+
 sys.path.append('.')
 from model import DomainDiscriminator, Ensemble
 from model import DomainAdversarialLoss, ImageClassifier, resnet50
@@ -191,6 +194,8 @@ def main(args: argparse.Namespace):
 
     # start training
     best_acc1 = 0.
+    scaler1 = GradScaler()
+    scaler2 = GradScaler()
     for epoch in range(args.epochs):
         # train for one epoch
 
@@ -201,7 +206,8 @@ def main(args: argparse.Namespace):
                    lr_scheduler1,
                    epoch,
                    args,
-                   index=1)
+                   index=1,
+                   scaler=scaler1)
         train_esem(esem_iter2,
                    classifier,
                    esem,
@@ -209,7 +215,8 @@ def main(args: argparse.Namespace):
                    lr_scheduler2,
                    epoch,
                    args,
-                   index=2)
+                   index=2,
+                   scaler=scaler1)
         train_esem(esem_iter3,
                    classifier,
                    esem,
@@ -217,7 +224,8 @@ def main(args: argparse.Namespace):
                    lr_scheduler3,
                    epoch,
                    args,
-                   index=3)
+                   index=3,
+                   scaler=scaler1)
         train_esem(esem_iter4,
                    classifier,
                    esem,
@@ -225,7 +233,8 @@ def main(args: argparse.Namespace):
                    lr_scheduler4,
                    epoch,
                    args,
-                   index=4)
+                   index=4,
+                   scaler=scaler1)
         train_esem(esem_iter5,
                    classifier,
                    esem,
@@ -233,14 +242,16 @@ def main(args: argparse.Namespace):
                    lr_scheduler5,
                    epoch,
                    args,
-                   index=5)
+                   index=5,
+                   scaler=scaler1)
 
         source_class_weight = evaluate_source_common(val_loader, classifier,
                                                      esem, source_classes,
                                                      args)
 
         train(train_source_iter, train_target_iter, classifier, domain_adv,
-              esem, optimizer, lr_scheduler, epoch, source_class_weight, args)
+              esem, optimizer, lr_scheduler, epoch, source_class_weight, args,
+              scaler2)
 
         # evaluate on validation set
         acc1 = validate(val_loader, classifier, esem, source_classes, args)
@@ -262,7 +273,7 @@ def train(train_source_iter: ForeverDataIterator,
           train_target_iter: ForeverDataIterator, model: ImageClassifier,
           domain_adv: DomainAdversarialLoss, esem, optimizer: SGD,
           lr_scheduler: StepwiseLR, epoch: int, source_class_weight,
-          args: argparse.Namespace):
+          args: argparse.Namespace, scaler):
     batch_time = AverageMeter('Time', ':5.2f')
     data_time = AverageMeter('Data', ':5.2f')
     losses = AverageMeter('Loss', ':6.2f')
@@ -297,23 +308,24 @@ def train(train_source_iter: ForeverDataIterator,
         # y, f = model(x)
         # y_s, y_t = y.chunk(2, dim=0)
         # f_s, f_t = f.chunk(2, dim=0)
-        y_s, f_s = model(x_s)
-        y_t, f_t = model(x_t)
+        with autocast():
+            y_s, f_s = model(x_s)
+            y_t, f_t = model(x_t)
 
-        with torch.no_grad():
-            yt_1, yt_2, yt_3, yt_4, yt_5 = esem(f_t)
-            confidence = get_confidence(yt_1, yt_2, yt_3, yt_4, yt_5)
-            entropy = get_entropy(yt_1, yt_2, yt_3, yt_4, yt_5)
-            consistency = get_consistency(yt_1, yt_2, yt_3, yt_4, yt_5)
-            w_t = (1 - entropy + 1 - consistency + confidence) / 3
-            w_s = torch.tensor([source_class_weight[i]
-                                for i in labels_s]).to(device)
+            with torch.no_grad():
+                yt_1, yt_2, yt_3, yt_4, yt_5 = esem(f_t)
+                confidence = get_confidence(yt_1, yt_2, yt_3, yt_4, yt_5)
+                entropy = get_entropy(yt_1, yt_2, yt_3, yt_4, yt_5)
+                consistency = get_consistency(yt_1, yt_2, yt_3, yt_4, yt_5)
+                w_t = (1 - entropy + 1 - consistency + confidence) / 3
+                w_s = torch.tensor([source_class_weight[i]
+                                    for i in labels_s]).to(device)
 
-        cls_loss = F.cross_entropy(y_s, labels_s)
-        transfer_loss = domain_adv(f_s, f_t, w_s.detach(),
-                                   w_t.to(device).detach())
-        domain_acc = domain_adv.domain_discriminator_accuracy
-        loss = cls_loss + transfer_loss * args.trade_off
+            cls_loss = F.cross_entropy(y_s, labels_s)
+            transfer_loss = domain_adv(f_s, f_t, w_s.detach(),
+                                       w_t.to(device).detach())
+            domain_acc = domain_adv.domain_discriminator_accuracy
+            loss = cls_loss + transfer_loss * args.trade_off
 
         cls_acc = accuracy(y_s, labels_s)[0]
 
@@ -323,8 +335,10 @@ def train(train_source_iter: ForeverDataIterator,
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+
+        scaler.update()
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -335,7 +349,8 @@ def train(train_source_iter: ForeverDataIterator,
 
 
 def train_esem(train_source_iter, model, esem, optimizer, lr_scheduler, epoch,
-               args, index):
+               args, index, scaler):
+
     losses = AverageMeter('Loss', ':6.2f')
     cls_accs = AverageMeter('Cls Acc', ':3.1f')
     progress = ProgressMeter(args.iters_per_epoch, [losses, cls_accs],
@@ -351,11 +366,13 @@ def train_esem(train_source_iter, model, esem, optimizer, lr_scheduler, epoch,
         x_s = x_s.to(device)
         labels_s = labels_s.to(device)
 
-        with torch.no_grad():
-            y_s, f_s = model(x_s)
-        y_s = esem(f_s.detach(), index)
+        with autocast():
+            with torch.no_grad():
+                y_s, f_s = model(x_s)
+            y_s = esem(f_s.detach(), index)
 
-        loss = F.cross_entropy(y_s, labels_s)
+            loss = F.cross_entropy(y_s, labels_s)
+
         cls_acc = accuracy(y_s, labels_s)[0]
 
         losses.update(loss.item(), x_s.size(0))
@@ -363,8 +380,10 @@ def train_esem(train_source_iter, model, esem, optimizer, lr_scheduler, epoch,
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+
+        scaler.update()
 
         if i % (args.print_freq * 5) == 0:
             progress.display(i)
@@ -507,6 +526,9 @@ def evaluate_source_common(val_loader: DataLoader, model: ImageClassifier,
 
 def pretrain(esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5, model,
              esem, optimizer, args):
+
+    scaler = GradScaler()
+
     losses = AverageMeter('Loss', ':6.2f')
     cls_accs = AverageMeter('Cls Acc', ':3.1f')
     progress = ProgressMeter(args.iters_per_epoch, [losses, cls_accs],
@@ -519,48 +541,52 @@ def pretrain(esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5, model,
         x_s1, labels_s1 = next(esem_iter1)
         x_s1 = x_s1.to(device)
         labels_s1 = labels_s1.to(device)
-        y_s1, f_s1 = model(x_s1)
-        y_s1 = esem(f_s1, index=1)
-        loss1 = F.cross_entropy(y_s1, labels_s1)
 
-        x_s2, labels_s2 = next(esem_iter2)
-        x_s2 = x_s2.to(device)
-        labels_s2 = labels_s2.to(device)
-        y_s2, f_s2 = model(x_s2)
-        y_s2 = esem(f_s2, index=2)
-        loss2 = F.cross_entropy(y_s2, labels_s2)
+        with autocast():
+            y_s1, f_s1 = model(x_s1)
+            y_s1 = esem(f_s1, index=1)
+            loss1 = F.cross_entropy(y_s1, labels_s1)
 
-        x_s3, labels_s3 = next(esem_iter3)
-        x_s3 = x_s3.to(device)
-        labels_s3 = labels_s3.to(device)
-        y_s3, f_s3 = model(x_s3)
-        y_s3 = esem(f_s3, index=3)
-        loss3 = F.cross_entropy(y_s3, labels_s3)
+            x_s2, labels_s2 = next(esem_iter2)
+            x_s2 = x_s2.to(device)
+            labels_s2 = labels_s2.to(device)
+            y_s2, f_s2 = model(x_s2)
+            y_s2 = esem(f_s2, index=2)
+            loss2 = F.cross_entropy(y_s2, labels_s2)
 
-        x_s4, labels_s4 = next(esem_iter4)
-        x_s4 = x_s4.to(device)
-        labels_s4 = labels_s4.to(device)
-        y_s4, f_s4 = model(x_s4)
-        y_s4 = esem(f_s4, index=1)
-        loss4 = F.cross_entropy(y_s4, labels_s4)
+            x_s3, labels_s3 = next(esem_iter3)
+            x_s3 = x_s3.to(device)
+            labels_s3 = labels_s3.to(device)
+            y_s3, f_s3 = model(x_s3)
+            y_s3 = esem(f_s3, index=3)
+            loss3 = F.cross_entropy(y_s3, labels_s3)
 
-        x_s5, labels_s5 = next(esem_iter5)
-        x_s5 = x_s5.to(device)
-        labels_s5 = labels_s5.to(device)
-        y_s5, f_s5 = model(x_s5)
-        y_s5 = esem(f_s5, index=1)
-        loss5 = F.cross_entropy(y_s5, labels_s5)
+            x_s4, labels_s4 = next(esem_iter4)
+            x_s4 = x_s4.to(device)
+            labels_s4 = labels_s4.to(device)
+            y_s4, f_s4 = model(x_s4)
+            y_s4 = esem(f_s4, index=1)
+            loss4 = F.cross_entropy(y_s4, labels_s4)
+
+            x_s5, labels_s5 = next(esem_iter5)
+            x_s5 = x_s5.to(device)
+            labels_s5 = labels_s5.to(device)
+            y_s5, f_s5 = model(x_s5)
+            y_s5 = esem(f_s5, index=1)
+            loss5 = F.cross_entropy(y_s5, labels_s5)
+
+            loss = loss1 + loss2 + loss3 + loss4 + loss5
 
         cls_acc = accuracy(y_s1, labels_s1)[0]
         cls_accs.update(cls_acc.item(), x_s1.size(0))
-
-        loss = loss1 + loss2 + loss3 + loss4 + loss5
         losses.update(loss.item(), x_s1.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+
+        scaler.update()
 
         if i % (args.print_freq * 5) == 0:
             progress.display(i)
