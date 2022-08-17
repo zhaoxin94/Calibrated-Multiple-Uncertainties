@@ -32,10 +32,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def main(args: argparse.Namespace):
     if args.seed is not None:
         random.seed(args.seed)
+        np.random.seed(args.seed)
         torch.manual_seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
         cudnn.deterministic = True
 
-    cudnn.benchmark = True
+    cudnn.benchmark = False
 
     # Data loading code
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -58,6 +60,10 @@ def main(args: argparse.Namespace):
     target_private_classes = [i + a + b for i in range(c - a - b)]
     source_classes = common_classes + source_private_classes
     target_classes = common_classes + target_private_classes
+
+    if args.dataset == 'office31':
+        file_folder = 'reorganized_image_list'
+        source_file = 
 
     dataset = datasets.Office31
     train_source_dataset = dataset(root=args.root,
@@ -534,7 +540,7 @@ def pretrain(esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5, model,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch Domain Adaptation')
     parser.add_argument('root', metavar='DIR', help='root path of dataset')
-    parser.add_argument('-d', '--data', metavar='DATA', default='Office31')
+    parser.add_argument('-d', '--dataset', metavar='DATA', default='Office31')
     parser.add_argument('-s', '--source', help='source domain(s)')
     parser.add_argument('-t', '--target', help='target domain(s)')
     parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50')
