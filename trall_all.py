@@ -111,5 +111,5 @@ if __name__ == '__main__':
                               f'--n_share {n_share} '
                               f'--n_source_private {n_source_private} '
                               f'--n_total {n_total} '
-                              f'--output-dir {output_dir} '
+                            #  f'--output-dir {output_dir} '
                               f'--seed {seed}')

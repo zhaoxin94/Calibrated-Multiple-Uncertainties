@@ -197,10 +197,10 @@ train_transform5 = Compose([
 ])
 
 
-def esem_dataloader(args, filter_class):
-    train_source_dataset1 = ImageList(root=args.root,
+def esem_dataloader(args, filter_class, source_file, data_path):
+    train_source_dataset1 = ImageList(root=data_path,
                                       num_class=len(filter_class),
-                                      data_list_file=args.source,
+                                      data_list_file=source_file,
                                       filter_class=filter_class,
                                       transform=train_transform1)
     esem_loader1 = DataLoader(train_source_dataset1,
@@ -208,9 +208,9 @@ def esem_dataloader(args, filter_class):
                               shuffle=True,
                               num_workers=args.workers,
                               drop_last=True)
-    train_source_dataset2 = ImageList(root=args.root,
+    train_source_dataset2 = ImageList(root=data_path,
                                       num_class=len(filter_class),
-                                      data_list_file=args.source,
+                                      data_list_file=source_file,
                                       filter_class=filter_class,
                                       transform=train_transform2)
     esem_loader2 = DataLoader(train_source_dataset2,
@@ -218,9 +218,9 @@ def esem_dataloader(args, filter_class):
                               shuffle=True,
                               num_workers=args.workers,
                               drop_last=True)
-    train_source_dataset3 = ImageList(root=args.root,
+    train_source_dataset3 = ImageList(root=data_path,
                                       num_class=len(filter_class),
-                                      data_list_file=args.source,
+                                      data_list_file=source_file,
                                       filter_class=filter_class,
                                       transform=train_transform3)
     esem_loader3 = DataLoader(train_source_dataset3,
@@ -228,9 +228,9 @@ def esem_dataloader(args, filter_class):
                               shuffle=True,
                               num_workers=args.workers,
                               drop_last=True)
-    train_source_dataset4 = ImageList(root=args.root,
+    train_source_dataset4 = ImageList(root=data_path,
                                       num_class=len(filter_class),
-                                      data_list_file=args.source,
+                                      data_list_file=source_file,
                                       filter_class=filter_class,
                                       transform=train_transform4)
     esem_loader4 = DataLoader(train_source_dataset4,
@@ -238,9 +238,9 @@ def esem_dataloader(args, filter_class):
                               shuffle=True,
                               num_workers=args.workers,
                               drop_last=True)
-    train_source_dataset5 = ImageList(root=args.root,
+    train_source_dataset5 = ImageList(root=data_path,
                                       num_class=len(filter_class),
-                                      data_list_file=args.source,
+                                      data_list_file=source_file,
                                       filter_class=filter_class,
                                       transform=train_transform5)
     esem_loader5 = DataLoader(train_source_dataset5,

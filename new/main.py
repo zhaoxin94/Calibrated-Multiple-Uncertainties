@@ -59,27 +59,31 @@ def main(args: argparse.Namespace):
     common_classes = [i for i in range(a)]
     source_private_classes = [i + a for i in range(b)]
     target_private_classes = [i + a + b for i in range(c - a - b)]
+
     source_classes = common_classes + source_private_classes
     target_classes = common_classes + target_private_classes
 
     if args.dataset == 'office31':
         file_folder = 'reorganized_image_list'
         source_file = osp.join(args.root, 'office31', file_folder,
-                               args.source + '.txt')
+                               source_file + '.txt')
         target_file = osp.join(args.root, 'office31', file_folder,
                                args.target + '.txt')
+        data_path = osp.join(args.root, 'office31')
     elif args.dataset == 'officehome':
         file_folder = 'image_list'
         source_file = osp.join(args.root, 'office_home', file_folder,
                                args.source + '.txt')
         target_file = osp.join(args.root, 'office_home', file_folder,
                                args.target + '.txt')
+        data_path = osp.join(args.root, 'office_home')
     elif args.dataset == 'domainnet':
         file_folder = 'image_list'
         source_file = osp.join(args.root, 'domainnet', file_folder,
                                args.source + '.txt')
         target_file = osp.join(args.root, 'domainnet', file_folder,
                                args.target + '.txt')
+        data_path = osp.join(args.root, 'domainnet')
     elif args.dataset == 'visda':
         file_folder = 'image_list'
         assert args.source == 'synthetic', 'For visda, source domain must be synthetic'
@@ -88,9 +92,10 @@ def main(args: argparse.Namespace):
                                args.source + '.txt')
         target_file = osp.join(args.root, 'visda', file_folder,
                                args.target + '.txt')
+        data_path = osp.join(args.root, 'visda')
 
     dataset = datasets.Office31
-    train_source_dataset = dataset(root=args.root,
+    train_source_dataset = dataset(root=data_path,
                                    data_list_file=source_file,
                                    filter_class=source_classes,
                                    transform=train_transform)
@@ -99,7 +104,7 @@ def main(args: argparse.Namespace):
                                      shuffle=True,
                                      num_workers=args.workers,
                                      drop_last=True)
-    train_target_dataset = dataset(root=args.root,
+    train_target_dataset = dataset(root=data_path,
                                    data_list_file=target_file,
                                    filter_class=target_classes,
                                    transform=train_transform)
@@ -108,7 +113,7 @@ def main(args: argparse.Namespace):
                                      shuffle=True,
                                      num_workers=args.workers,
                                      drop_last=True)
-    val_dataset = dataset(root=args.root,
+    val_dataset = dataset(root=data_path,
                           data_list_file=target_file,
                           filter_class=target_classes,
                           transform=val_tranform)
@@ -122,7 +127,7 @@ def main(args: argparse.Namespace):
     train_source_iter = ForeverDataIterator(train_source_loader)
     train_target_iter = ForeverDataIterator(train_target_loader)
     esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5 = esem_dataloader(
-        args, source_classes)
+        args, source_classes, source_file, data_path)
 
     # create model
     backbone = resnet50(pretrained=True)
@@ -563,7 +568,7 @@ def pretrain(esem_iter1, esem_iter2, esem_iter3, esem_iter4, esem_iter5, model,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch Domain Adaptation')
-    parser.add_argument('root', metavar='DIR', help='root path of dataset')
+    parser.add_argument('--root', metavar='DIR', help='root path of dataset')
     parser.add_argument('-d', '--dataset', metavar='DATA', default='Office31')
     parser.add_argument('-s', '--source', help='source domain(s)')
     parser.add_argument('-t', '--target', help='target domain(s)')
