@@ -21,9 +21,11 @@ class StepwiseLR:
         - **gamma** (float, optional): :math:`\gamma`. Default: 0.001
         - **decay_rate** (float, optional): :math:`p` . Default: 0.75
     """
-
-    def __init__(self, optimizer: Optimizer, init_lr: Optional[float] = 0.01,
-                 gamma: Optional[float] = 0.001, decay_rate: Optional[float] = 0.75):
+    def __init__(self,
+                 optimizer: Optimizer,
+                 init_lr: Optional[float] = 0.01,
+                 gamma: Optional[float] = 0.001,
+                 decay_rate: Optional[float] = 0.75):
         self.init_lr = init_lr
         self.gamma = gamma
         self.decay_rate = decay_rate
@@ -31,7 +33,8 @@ class StepwiseLR:
         self.iter_num = 0
 
     def get_lr(self) -> float:
-        lr = self.init_lr * (1 + self.gamma * self.iter_num) ** (-self.decay_rate)
+        lr = self.init_lr * (1 +
+                             self.gamma * self.iter_num)**(-self.decay_rate)
         return lr
 
     def step(self):
@@ -47,7 +50,6 @@ class StepwiseLR:
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
-
     def __init__(self, name, fmt=':f'):
         self.name = name
         self.fmt = fmt
@@ -87,7 +89,7 @@ class ProgressMeter(object):
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
 
 
-def accuracy(output, target, topk=(1,)):
+def accuracy(output, target, topk=(1, )):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
         maxk = max(topk)
@@ -106,7 +108,6 @@ def accuracy(output, target, topk=(1,)):
 
 class ForeverDataIterator:
     """A data iterator that will never stop producing data"""
-
     def __init__(self, data_loader: DataLoader):
         self.data_loader = data_loader
         self.iter = iter(self.data_loader)
@@ -131,7 +132,6 @@ class ResizeImage(object):
             (h, w), output size will be matched to this. If size is an int,
             output size will be (size, size)
     """
-
     def __init__(self, size):
         if isinstance(size, int):
             self.size = (int(size), int(size))
@@ -144,7 +144,6 @@ class ResizeImage(object):
 
 
 class AccuracyCounter:
-
     def __init__(self, length):
         self.Ncorrect = np.zeros(length)
         self.Ntotal = np.zeros(length)
@@ -189,19 +188,20 @@ def get_consistency(y_1, y_2, y_3, y_4, y_5):
 
 
 def get_entropy(y_1, y_2, y_3, y_4, y_5):
-    entropy1 = torch.sum(- y_1 * torch.log(y_1 + 1e-10), dim=1)
-    entropy2 = torch.sum(- y_2 * torch.log(y_2 + 1e-10), dim=1)
-    entropy3 = torch.sum(- y_3 * torch.log(y_3 + 1e-10), dim=1)
-    entropy4 = torch.sum(- y_4 * torch.log(y_4 + 1e-10), dim=1)
-    entropy5 = torch.sum(- y_5 * torch.log(y_5 + 1e-10), dim=1)
+    entropy1 = torch.sum(-y_1 * torch.log(y_1 + 1e-10), dim=1)
+    entropy2 = torch.sum(-y_2 * torch.log(y_2 + 1e-10), dim=1)
+    entropy3 = torch.sum(-y_3 * torch.log(y_3 + 1e-10), dim=1)
+    entropy4 = torch.sum(-y_4 * torch.log(y_4 + 1e-10), dim=1)
+    entropy5 = torch.sum(-y_5 * torch.log(y_5 + 1e-10), dim=1)
     entropy_norm = np.log(y_1.size(1))
 
-    entropy = (entropy1 + entropy2 + entropy3 + entropy4 + entropy5) / (5 * entropy_norm)
+    entropy = (entropy1 + entropy2 + entropy3 + entropy4 +
+               entropy5) / (5 * entropy_norm)
     return entropy
 
 
 def single_entropy(y_1):
-    entropy1 = torch.sum(- y_1 * torch.log(y_1 + 1e-10), dim=1)
+    entropy1 = torch.sum(-y_1 * torch.log(y_1 + 1e-10), dim=1)
     entropy_norm = np.log(y_1.size(1))
     entropy = entropy1 / entropy_norm
     return entropy
@@ -222,6 +222,7 @@ def get_confidence(y_1, y_2, y_3, y_4, y_5):
 #     var = torch.std(t) ** 2
 #     t = (t - mean) / var
 #     return t
+
 
 def norm(x):
     min_val = x.min()

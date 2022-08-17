@@ -12,7 +12,6 @@ from torchvision.models.resnet import BasicBlock, Bottleneck, model_urls
 
 class ResNet(models.ResNet):
     """ResNets without fully connected layer"""
-
     def __init__(self, *args, **kwargs):
         super(ResNet, self).__init__(*args, **kwargs)
         self._out_features = self.fc.in_features
@@ -63,7 +62,6 @@ def resnet50(pretrained=False, progress=True, **kwargs):
 
 
 class DomainDiscriminator(nn.Module):
-
     def __init__(self, in_feature: int, hidden_size: int):
         super(DomainDiscriminator, self).__init__()
         self.layer1 = nn.Linear(in_feature, hidden_size)
@@ -87,15 +85,17 @@ class DomainDiscriminator(nn.Module):
 
 
 class GradientReverseFunction(Function):
-
     @staticmethod
-    def forward(ctx: Any, input: torch.Tensor, coeff: Optional[float] = 1.) -> torch.Tensor:
+    def forward(ctx: Any,
+                input: torch.Tensor,
+                coeff: Optional[float] = 1.) -> torch.Tensor:
         ctx.coeff = coeff
         output = input * 1.0
         return output
 
     @staticmethod
-    def backward(ctx: Any, grad_output: torch.Tensor) -> Tuple[torch.Tensor, Any]:
+    def backward(ctx: Any,
+                 grad_output: torch.Tensor) -> Tuple[torch.Tensor, Any]:
         return grad_output.neg() * ctx.coeff, None
 
 
@@ -108,9 +108,12 @@ class GradientReverseLayer(nn.Module):
 
 
 class WarmStartGradientReverseLayer(nn.Module):
-
-    def __init__(self, alpha: Optional[float] = 1.0, lo: Optional[float] = 0.0, hi: Optional[float] = 1.,
-                 max_iters: Optional[int] = 1000., auto_step: Optional[bool] = False):
+    def __init__(self,
+                 alpha: Optional[float] = 1.0,
+                 lo: Optional[float] = 0.0,
+                 hi: Optional[float] = 1.,
+                 max_iters: Optional[int] = 1000.,
+                 auto_step: Optional[bool] = False):
         super(WarmStartGradientReverseLayer, self).__init__()
         self.alpha = alpha
         self.lo = lo
@@ -122,9 +125,9 @@ class WarmStartGradientReverseLayer(nn.Module):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """"""
         coeff = np.float(
-            2.0 * (self.hi - self.lo) / (1.0 + np.exp(-self.alpha * self.iter_num / self.max_iters))
-            - (self.hi - self.lo) + self.lo
-        )
+            2.0 * (self.hi - self.lo) /
+            (1.0 + np.exp(-self.alpha * self.iter_num / self.max_iters)) -
+            (self.hi - self.lo) + self.lo)
         if self.auto_step:
             self.step()
         return GradientReverseFunction.apply(input, coeff)
@@ -145,30 +148,40 @@ def binary_accuracy(output: torch.Tensor, target: torch.Tensor) -> float:
 
 
 class DomainAdversarialLoss(nn.Module):
-
-    def __init__(self, domain_discriminator: nn.Module, reduction: Optional[str] = 'mean'):
+    def __init__(self,
+                 domain_discriminator: nn.Module,
+                 reduction: Optional[str] = 'mean'):
         super(DomainAdversarialLoss, self).__init__()
-        self.grl = WarmStartGradientReverseLayer(alpha=1., lo=0., hi=1., max_iters=1000, auto_step=True)
+        self.grl = WarmStartGradientReverseLayer(alpha=1.,
+                                                 lo=0.,
+                                                 hi=1.,
+                                                 max_iters=1000,
+                                                 auto_step=True)
         self.domain_discriminator = domain_discriminator
         self.bce = nn.BCELoss(reduction=reduction)
         self.domain_discriminator_accuracy = None
 
-    def forward(self, f_s: torch.Tensor, f_t: torch.Tensor, w_s, w_t) -> torch.Tensor:
+    def forward(self, f_s: torch.Tensor, f_t: torch.Tensor, w_s,
+                w_t) -> torch.Tensor:
         f = self.grl(torch.cat((f_s, f_t), dim=0))
         d = self.domain_discriminator(f)
         d_s, d_t = d.chunk(2, dim=0)
         d_label_s = torch.ones((f_s.size(0), 1)).to(f_s.device)
         d_label_t = torch.zeros((f_t.size(0), 1)).to(f_t.device)
-        self.domain_discriminator_accuracy = 0.5 * (binary_accuracy(d_s, d_label_s) + binary_accuracy(d_t, d_label_t))
+        self.domain_discriminator_accuracy = 0.5 * (
+            binary_accuracy(d_s, d_label_s) + binary_accuracy(d_t, d_label_t))
         source_loss = torch.mean(w_s * self.bce(d_s, d_label_s).view(-1))
         target_loss = torch.mean(w_t * self.bce(d_t, d_label_t).view(-1))
         return 0.5 * (source_loss + target_loss)
 
 
 class ClassifierBase(nn.Module):
-
-    def __init__(self, backbone: nn.Module, num_classes: int, bottleneck: Optional[nn.Module] = None,
-                 bottleneck_dim: Optional[int] = -1, head: Optional[nn.Module] = None):
+    def __init__(self,
+                 backbone: nn.Module,
+                 num_classes: int,
+                 bottleneck: Optional[nn.Module] = None,
+                 bottleneck_dim: Optional[int] = -1,
+                 head: Optional[nn.Module] = None):
         super(ClassifierBase, self).__init__()
         self.backbone = backbone
         self.num_classes = num_classes
@@ -203,25 +216,35 @@ class ClassifierBase(nn.Module):
             such as the relative learning rate of each layer
         """
         params = [
-            {"params": self.backbone.parameters(), "lr_mult": 0.1},
-            {"params": self.bottleneck.parameters(), "lr_mult": 1.},
-            {"params": self.head.parameters(), "lr_mult": 1.},
+            {
+                "params": self.backbone.parameters(),
+                "lr_mult": 0.1
+            },
+            {
+                "params": self.bottleneck.parameters(),
+                "lr_mult": 1.
+            },
+            {
+                "params": self.head.parameters(),
+                "lr_mult": 1.
+            },
         ]
         return params
 
 
 class ImageClassifier(ClassifierBase):
-    def __init__(self, backbone: nn.Module, num_classes: int, bottleneck_dim: Optional[int] = 256):
+    def __init__(self,
+                 backbone: nn.Module,
+                 num_classes: int,
+                 bottleneck_dim: Optional[int] = 256):
         bottleneck = nn.Sequential(
             nn.Linear(backbone.out_features, bottleneck_dim),
-            nn.BatchNorm1d(bottleneck_dim),
-            nn.ReLU()
-        )
-        super(ImageClassifier, self).__init__(backbone, num_classes, bottleneck, bottleneck_dim)
+            nn.BatchNorm1d(bottleneck_dim), nn.ReLU())
+        super(ImageClassifier, self).__init__(backbone, num_classes,
+                                              bottleneck, bottleneck_dim)
 
 
 class Ensemble(nn.Module):
-
     def __init__(self, in_feature, num_classes):
         super(Ensemble, self).__init__()
         self.fc1 = nn.Linear(in_feature, num_classes)
@@ -229,7 +252,8 @@ class Ensemble(nn.Module):
         self.fc3 = nn.Linear(in_feature, num_classes)
         self.fc4 = nn.Linear(in_feature, num_classes)
         self.fc5 = nn.Linear(in_feature, num_classes)
-        nn.init.xavier_uniform_(self.fc2.weight, gain=nn.init.calculate_gain('relu'))
+        nn.init.xavier_uniform_(self.fc2.weight,
+                                gain=nn.init.calculate_gain('relu'))
         nn.init.xavier_normal_(self.fc3.weight)
         nn.init.kaiming_uniform_(self.fc4.weight, nonlinearity='relu')
         nn.init.kaiming_normal_(self.fc5.weight)
@@ -270,6 +294,9 @@ class Ensemble(nn.Module):
             such as the relative learning rate of each layer
         """
         params = [
-            {"params": self.parameters(), "lr_mult": 1.},
+            {
+                "params": self.parameters(),
+                "lr_mult": 1.
+            },
         ]
         return params
