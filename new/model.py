@@ -71,13 +71,13 @@ class DomainDiscriminator(nn.Module):
         self.bn2 = nn.BatchNorm1d(hidden_size)
         self.relu2 = nn.ReLU()
         self.layer3 = nn.Linear(hidden_size, 1)
-        self.sigmoid = nn.Sigmoid()
+        # self.sigmoid = nn.Sigmoid()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """"""
         x = self.relu1(self.bn1(self.layer1(x)))
         x = self.relu2(self.bn2(self.layer2(x)))
-        y = self.sigmoid(self.layer3(x))
+        y = self.layer3(x)
         return y
 
     def get_parameters(self) -> List[Dict]:
@@ -158,7 +158,7 @@ class DomainAdversarialLoss(nn.Module):
                                                  max_iters=1000,
                                                  auto_step=True)
         self.domain_discriminator = domain_discriminator
-        self.bce = nn.BCELoss(reduction=reduction)
+        self.bce = nn.BCEWithLogitsLoss(reduction=reduction)
         self.domain_discriminator_accuracy = None
 
     def forward(self, f_s: torch.Tensor, f_t: torch.Tensor, w_s,

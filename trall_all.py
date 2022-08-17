@@ -103,7 +103,7 @@ if __name__ == '__main__':
                                          args.dataset, source, target, i)
 
                     os.system(f'CUDA_VISIBLE_DEVICES={args.gpu} '
-                              f'python new/main.py '
+                              f'python new/train_amp.py '
                               f'--root {data_root} '
                               f'--dataset {args.dataset} '
                               f'--source {source} '

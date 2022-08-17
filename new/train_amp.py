@@ -612,7 +612,7 @@ if __name__ == '__main__':
                         help='number of total epochs to run')
     parser.add_argument('-b',
                         '--batch-size',
-                        default=20,
+                        default=32,
                         type=int,
                         metavar='N',
                         help='mini-batch size (default: 32)')
