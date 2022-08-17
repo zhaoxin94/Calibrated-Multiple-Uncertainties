@@ -69,7 +69,7 @@ def main(args: argparse.Namespace):
     if args.dataset == 'office31':
         file_folder = 'reorganized_image_list'
         source_file = osp.join(args.root, 'office31', file_folder,
-                               source_file + '.txt')
+                               args.source + '.txt')
         target_file = osp.join(args.root, 'office31', file_folder,
                                args.target + '.txt')
         data_path = osp.join(args.root, 'office31')
