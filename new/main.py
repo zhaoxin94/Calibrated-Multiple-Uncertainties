@@ -4,6 +4,7 @@ import warnings
 import sys
 import argparse
 import copy
+import os.path as osp
 
 import torch
 import torch.nn.parallel
@@ -63,11 +64,34 @@ def main(args: argparse.Namespace):
 
     if args.dataset == 'office31':
         file_folder = 'reorganized_image_list'
-        source_file = 
+        source_file = osp.join(args.root, 'office31', file_folder,
+                               args.source + '.txt')
+        target_file = osp.join(args.root, 'office31', file_folder,
+                               args.target + '.txt')
+    elif args.dataset == 'officehome':
+        file_folder = 'image_list'
+        source_file = osp.join(args.root, 'office_home', file_folder,
+                               args.source + '.txt')
+        target_file = osp.join(args.root, 'office_home', file_folder,
+                               args.target + '.txt')
+    elif args.dataset == 'domainnet':
+        file_folder = 'image_list'
+        source_file = osp.join(args.root, 'domainnet', file_folder,
+                               args.source + '.txt')
+        target_file = osp.join(args.root, 'domainnet', file_folder,
+                               args.target + '.txt')
+    elif args.dataset == 'visda':
+        file_folder = 'image_list'
+        assert args.source == 'synthetic', 'For visda, source domain must be synthetic'
+        assert args.source == 'real', 'For visda, target domain must be real'
+        source_file = osp.join(args.root, 'visda', file_folder,
+                               args.source + '.txt')
+        target_file = osp.join(args.root, 'visda', file_folder,
+                               args.target + '.txt')
 
     dataset = datasets.Office31
     train_source_dataset = dataset(root=args.root,
-                                   data_list_file=args.source,
+                                   data_list_file=source_file,
                                    filter_class=source_classes,
                                    transform=train_transform)
     train_source_loader = DataLoader(train_source_dataset,
@@ -76,7 +100,7 @@ def main(args: argparse.Namespace):
                                      num_workers=args.workers,
                                      drop_last=True)
     train_target_dataset = dataset(root=args.root,
-                                   data_list_file=args.target,
+                                   data_list_file=target_file,
                                    filter_class=target_classes,
                                    transform=train_transform)
     train_target_loader = DataLoader(train_target_dataset,
@@ -85,7 +109,7 @@ def main(args: argparse.Namespace):
                                      num_workers=args.workers,
                                      drop_last=True)
     val_dataset = dataset(root=args.root,
-                          data_list_file=args.target,
+                          data_list_file=target_file,
                           filter_class=target_classes,
                           transform=val_tranform)
     val_loader = DataLoader(val_dataset,
